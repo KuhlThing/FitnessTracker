@@ -1,66 +1,57 @@
-const db = require("../models/");
-const mongoose = require("mongoose");
-var ObjectId = mongoose.Types.ObjectId;
+const db = require("../models");
 
+String.prototype.toObjectId = function () {
+  var ObjectId = (require('mongoose').Types.ObjectId);
+  return new ObjectId(this.toString());
+};
 
 module.exports = function (app) {
 
-    app.get("/api/workouts", function (req, res) {
-        db.Workout.find({})
-            .then(dbWorkout => {
-                res.json(dbWorkout);
-            })
-            .catch(err => {
-                res.json(err);
-            })
-    });
+  app.get("/api/workouts", async (req, res) => {
+    const agg = await db.Workout.aggregate([
+      { $unwind: "$exercises" },
+      {
+        $group: {
+          _id: "$_id",
+          day: { "$first": "$day" },
+          exercises: { $push: "$exercises" },
+          totalDuration: { $sum: "$exercises.duration" },
+        }
+      },
+      { $sort: { day: 1 } }
+    ]);
+    res.json(agg);
+  });
 
-    app.get("/api/workouts/range", function (req, res) {
-        db.Workout.find({})
-            .sort({ "day": 1 })
-            .then(dbWorkout => {
-                res.json(dbWorkout);
-            })
-            .catch(err => {
-                res.json(err);
-            })
-    });
+  app.post("/api/workouts", async (req, res) => {
+    const workout = new db.Workout();
+    const data = await db.Workout.create(workout);
+    res.json(data);
+  });
 
-    app.get("/api/workouts/:id", function (req, res) {
-        db.Workout.findOne({
-            where: {
-                id: req.params.id
-            }
-        }).then(dbWorkout => {
-            res.json(dbWorkout);
-        }).catch(err => {
-            res.json(err);
-        })
-    })
+  app.put("/api/workouts/:id", async (req, res) => {
+    try {
+      const data = await db.Workout.updateOne(
+        {
+          _id: req.params.id.toObjectId()
+        },
+        {
+          $push: { exercises: req.body }
+        },
+        {
+          runValidators: true
+        });
+      console.log(data);
+      res.json(data);
 
-    app.post("/api/workouts", function (req, res) {
-        const workout = new db.Workout();
-        db.Workout.create(workout)
-            .then(dbWorkout => {
-                res.json(dbWorkout);
-            })
-            .catch(err => {
-                res.json(err);
-            })
-    });
+    } catch (err) {
+      console.log(JSON.stringify(err.errors['exercises'].message));
+      res.sendStatus(400);
+    }
+  });
 
-    app.put("/api/workouts/:id", function (req, res) {
-        var query = { _id: req.params.id };
-        db.Workout.findOneAndUpdate(query, {
-            $push: { exercises: [req.body] }
-        }, function (err, dbWorkout) {
-            if (err) {
-                res.json(err);
-            } else {
-                res.json(dbWorkout);
-            }
-        })
-    })
-
-
+  app.get("/api/workouts/range", async (req, res) => {
+    const data = await db.Workout.find({}).sort({ 'day': 1 });
+    res.json(data.slice(-7));
+  });
 }
