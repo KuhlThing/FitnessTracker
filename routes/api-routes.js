@@ -1,4 +1,4 @@
-const db = require("../models/index");
+const db = require("../models/");
 const mongoose = require("mongoose");
 var ObjectId = mongoose.Types.ObjectId;
 
