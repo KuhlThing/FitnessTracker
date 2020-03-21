@@ -1,9 +1,13 @@
 const mongoose = require("mongoose");
+const logger = require("morgan");
 const express = require("express");
+require("dotenv").config();
 
 const PORT = process.env.PORT || 3000;
 
-app = express();
+const app = express();
+app.use(logger("dev"));
+
 
 // Configure App
 app.use(express.static("public"));
